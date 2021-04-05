@@ -2,8 +2,8 @@ import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.util.ArrayList;
+import java.util.Scanner;
 import java.util.concurrent.ThreadLocalRandom;
-import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 
 public class GameManager {
@@ -11,6 +11,9 @@ public class GameManager {
     public int n = 5;
     public Player p1;
     public Player p2;
+
+    public Thread p1Thread;
+    public Thread p2Thread;
 
     // Decides whose turn it is
     public AtomicInteger turn = new AtomicInteger(1);
@@ -30,15 +33,43 @@ public class GameManager {
             playGame(p2);
         };
 
-        new Thread(player1Side).start();
-        new Thread(player2Side).start();
+        p1Thread = new Thread(player1Side);
+        p2Thread = new Thread(player2Side);
+        p1Thread.start();
+        p2Thread.start();
+
+        Runnable timeKeeper = () -> {
+            try {
+                Thread.sleep(1000 * 5); // 1s * x
+            } catch (InterruptedException e) {
+                //
+            }
+            System.out.println("Game entered timeout");
+            p1Thread.interrupt();
+            p2Thread.interrupt();
+            decideWinner();
+        };
+
+        new Thread(timeKeeper).start();
+
     }
 
-    private void playGame(Player p) {
-        if(!isGameOver()) {
+    private void decideWinner() {
+        if(p1.sequenceSum() > p2.sequenceSum()) {
+            System.out.println("Winner is Player1");
+        } else if(p1.sequenceSum() < p2.sequenceSum()) {
+            System.out.println("Winner is Player2");
+        } else {
+            System.out.println("Draw");
+        }
+    }
+
+    private synchronized void playGame(Player p) {
+        while(!isGameOver()) {
             while(turn.get()!=p.number) {
                 try {
-                    Thread.sleep(100);
+                    System.out.println(p.name + " entered wait");
+                    wait();
                 } catch (InterruptedException e) {
                     e.printStackTrace();
                 }
@@ -53,32 +84,33 @@ public class GameManager {
         int userInputX = -1;
         int userInputY = -1;
         try {
-            while (userInputX == -1) {
-                userInputX = readValue();
-            }
-            while (userInputY == -1) {
-                userInputY = readValue();
-            }
+            userInputX = readValue();
+            userInputY = readValue();
         } catch (IOException e) {
-            e.printStackTrace();
+            //
         }
 
         System.out.println("Player" + p.number + "'s selected position: " + userInputX + " " + userInputY);
         p.sequence.add(board[userInputX][userInputY]);
         board[userInputX][userInputY] = 0;
+
         if(turn.get() == 1) {
             turn.set(2);
         } else {
             turn.set(1);
         }
-        playGame(p);
+        notifyAll();
     }
 
     private int readValue() throws IOException {
-        BufferedReader br = new BufferedReader(new InputStreamReader(System.in));
+        Scanner inputScanner = new Scanner(System.in);
+        String userInput = inputScanner.next();
+
         int value = -1;
         try {
-            value = Integer.parseInt(br.readLine());
+            while(value<0) {
+                value = Integer.parseInt(userInput);
+            }
         } catch(NumberFormatException nfe) {
             System.err.println("Invalid Format!");
         }

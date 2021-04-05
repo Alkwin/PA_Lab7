@@ -19,4 +19,12 @@ public class Player {
                 ", number=" + number +
                 '}';
     }
+
+    public Integer sequenceSum() {
+        int sum = 0;
+        for(int i = 0 ; i < sequence.size(); i++) {
+            sum = sum + sequence.get(i);
+        }
+        return sum;
+    }
 }
